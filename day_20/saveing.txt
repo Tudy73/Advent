@@ -1,0 +1,182 @@
+#include <iostream>
+#include <vector>
+#include <cstring>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <set>
+#include <algorithm>
+#include <cmath>
+#include <queue>
+#include <numeric>
+#include <chrono>
+#include <thread>
+#include <stack>
+#include <map>
+#define ll long long
+#define ull unsigned long long
+#define pb push_back
+#define pii pair<int,int>
+#define LOW false
+#define HIGH true
+#define YES 1
+#define NO 0
+
+using namespace std;
+
+ifstream in("input.txt");
+
+enum moduleType {
+    broadcaster,
+    flip_flop,
+    conjunct,
+    output
+};
+
+vector<int> nextUp[60];
+moduleType type[60];
+vector<int> inputs[60];
+vector<string> modules;
+ll state;
+
+set<string> entered;
+map<string, int> toInt;
+map<int, string> toString;
+int currentInt = 1;
+
+bool goalReached = false;
+int rx, qn;
+ll status;
+void display() {
+}
+int conv_int(string s) {
+    return (s[0] - 'a') * 27 + (s[1] - 'a');
+}
+string conv_string(int s) {
+    string t;
+    t.pb(s / 27 + 'a');
+    t.pb(s % 27 + 'a');
+    return  t;
+}
+void readInput() {
+    string newLine;
+
+    string reader, receiver;
+    while (getline(in, newLine)) {
+        istringstream sin(newLine);
+        sin >> reader;
+        string sender;
+        if (reader[0] == '%' || reader[0] == '&') {
+            sender = reader.substr(1, reader.size() - 1);
+        }
+        else sender = reader;
+        if (reader[0] == 'b') {
+            toInt[sender] = 0;
+        }
+        else if(entered.count(sender) == 0){
+            toInt[sender] = currentInt++;
+            entered.insert(sender);
+        }
+        modules.pb(sender);
+        if (reader[0] == '%') {
+            type[toInt[sender]] = flip_flop;
+        }
+        else if (reader[0] == '&') {
+            type[toInt[sender]] = conjunct;
+        }
+        else if (reader[0] == 'b') {
+            type[toInt[sender]] = broadcaster;
+        }
+        sin >> receiver;
+        while (sin >> reader) {
+            if (reader[reader.size() - 1] == ',') {
+                receiver = reader.substr(0, reader.size() - 1);
+            }
+            else {
+                receiver = reader;
+            }
+            if(entered.count(receiver) == 0) {
+                toInt[receiver] = currentInt++;
+                entered.insert(receiver);
+            }
+            nextUp[toInt[sender]].pb(toInt[receiver]);
+            inputs[toInt[receiver]].pb(toInt[sender]);
+            toString[toInt[sender]] = sender;
+            toString[toInt[receiver]] = receiver;
+        }
+    }
+    rx = toInt["rx"];
+}
+bool conjunctSignal(int signal) {
+    for (int input : inputs[signal]) {
+        if (((state>>input) & 1) == 0) {
+            return HIGH;
+        }
+    }
+    return LOW;
+}
+std::string toBinary(long long number) {
+    if (number == 0) return "0";
+
+    std::string binary = "";
+    for (int i = 8 * sizeof(number) - 1; i >= 0; --i) {
+        binary += (number & (1LL << i)) ? '1' : '0';
+    }
+
+    // Remove leading zeros
+    binary.erase(0, binary.find_first_not_of('0'));
+
+    return binary;
+}
+void Cyclying() {
+
+    queue<int> q;
+    q.push(0);
+    while (!q.empty()) {
+        int current = q.front();
+        q.pop();
+        if (type[current] == conjunct) {
+            if (conjunctSignal(current) == LOW) {
+                state = state&(~(1LL<<current));
+            }
+            else {
+                state = state | (1LL << current);
+            }
+        }
+        else if (type[current] == flip_flop) {
+            state = state ^ (1LL << current);
+        }
+        for (int nextt : nextUp[current]) {
+            if (nextt == rx) {
+                if (((state>>current) & 1) == LOW) {
+                    goalReached = true;
+                    return;
+                }
+                continue;
+            }
+            if (type[nextt] == flip_flop && ((state>>current) & 1) == HIGH) {
+                continue;
+            }
+            if (type[nextt] == output) {
+                continue;
+            }
+            q.push(nextt);
+        }
+    }
+}
+void solve() {
+    ll i = 0;
+    for (; goalReached == false; i++) {
+        Cyclying();
+        if (i % 50000 == 0) {
+            cout << i << endl;
+        }
+    }
+    cout << i-1;
+}
+int main()
+{
+    readInput();
+    solve();
+    return 0;
+}
